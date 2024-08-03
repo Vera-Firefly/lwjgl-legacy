@@ -13,8 +13,8 @@ elif [ "$LWJGL_BUILD_ARCH" == "arm32" ]; then
 elif [ "$LWJGL_BUILD_ARCH" == "x86" ]; then
   export NDK_ABI=x86 NDK_TARGET=i686
   # Workaround: LWJGL 3 lacks of x86 Linux libraries
-  mkdir -p bin/libs/native/linux/x86/org/lwjgl/{freetype,glfw}
-  touch bin/libs/native/linux/x86/org/lwjgl/{freetype/libfreetype.so,glfw/libglfw.so}
+  mkdir -p bin/libs/native/linux/x86/org/lwjgl/{glfw}
+  touch bin/libs/native/linux/x86/org/lwjgl/{glfw/libglfw.so}
 elif [ "$LWJGL_BUILD_ARCH" == "x64" ]; then
   export NDK_ABI=x86_64 NDK_TARGET=x86_64
 fi
@@ -48,6 +48,10 @@ POJAV_NATIVES="https://github.com/aaaapai/PojavLauncher-Beta-Zink/raw/main_v3/ap
 wget -nc $POJAV_NATIVES/libopenal.so -P $LWJGL_NATIVE/openal
 wget -nc "https://nightly.link/aaaapai/shaderc/workflows/android/main/libshaderc-$NDK_ABI.zip"
 unzip -o libshaderc-$NDK_ABI.zip -d $LWJGL_NATIVE/shaderc
+
+# HACK: Skip compiling and running the generator to save time and keep LWJGLX functions
+mkdir -p bin/classes/{generator,templates/META-INF}
+touch bin/classes/{generator,templates}/touch.txt bin/classes/generator/generated-touch.txt
 
 # Build LWJGL 3
 ant -version
@@ -94,9 +98,6 @@ yes | ant -Dplatform.linux=true \
 rm -rf bin/out; mkdir bin/out
 find $LWJGL_NATIVE -name 'liblwjgl*.so' -exec cp {} bin/out/ \;
 cp $LWJGL_NATIVE/shaderc/libshaderc.so bin/out/
-if [ -e "$LWJGL_NATIVE/libfreetype.so" ]; then
-  cp $LWJGL_NATIVE/libfreetype.so bin/out/
-fi
 
 # Cleanup unused output jar files
 find bin/RELEASE \( -name '*-natives-*' -o -name '*-sources.jar' \) -delete
