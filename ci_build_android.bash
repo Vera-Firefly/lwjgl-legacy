@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
-export LIBFFI_VERSION=3.4.2
+#wget https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
+#unzip android-ndk-r26d-linux.zip >> /dev/null
 export ANDROID=1 LWJGL_BUILD_OFFLINE=1
 #export LWJGL_BUILD_ARCH=arm64
 
@@ -12,8 +13,8 @@ elif [ "$LWJGL_BUILD_ARCH" == "arm32" ]; then
 elif [ "$LWJGL_BUILD_ARCH" == "x86" ]; then
   export NDK_ABI=x86 NDK_TARGET=i686
   # Workaround: LWJGL 3 lacks of x86 Linux libraries
-  mkdir -p bin/libs/native/linux/x86/org/lwjgl/glfw
-  touch bin/libs/native/linux/x86/org/lwjgl/glfw/libglfw.so
+  mkdir -p bin/libs/native/linux/x86/org/lwjgl/{freetype,glfw}
+  touch bin/libs/native/linux/x86/org/lwjgl/{freetype/libfreetype.so,glfw/libglfw.so}
 elif [ "$LWJGL_BUILD_ARCH" == "x64" ]; then
   export NDK_ABI=x86_64 NDK_TARGET=x86_64
 fi
@@ -27,13 +28,13 @@ mkdir -p $LWJGL_NATIVE
 if [ "$SKIP_LIBFFI" != "1" ]; then
   # Get libffi
   if [ ! -d libffi ]; then
-    wget https://github.com/libffi/libffi/releases/download/v$LIBFFI_VERSION/libffi-$LIBFFI_VERSION.tar.gz
-    tar xvf libffi-$LIBFFI_VERSION.tar.gz
-    mv libffi-$LIBFFI_VERSION libffi
+    git clone --depth 1 https://github.com/aaaapai/libffi ${PWD}/libffi
   fi
   cd libffi
 
   # Build libffi
+  ./autogen.sh
+  ./configure
   bash configure --host=$TARGET --prefix=$PWD/$NDK_TARGET-unknown-linux-android$NDK_SUFFIX CC=${TARGET}21-clang CXX=${TARGET}21-clang++
   make -j4
   cd ..
@@ -43,25 +44,25 @@ if [ "$SKIP_LIBFFI" != "1" ]; then
 fi
 
 # Download libraries
-POJAV_NATIVES="https://github.com/PojavLauncherTeam/PojavLauncher/raw/v3_openjdk/app_pojavlauncher/src/main/jniLibs/$NDK_ABI"
+POJAV_NATIVES="https://github.com/aaaapai/PojavLauncher-Beta-Zink/raw/main_v3/app_pojavlauncher/src/main/jniLibs/$NDK_ABI"
 wget -nc $POJAV_NATIVES/libopenal.so -P $LWJGL_NATIVE/openal
-wget -nc "https://nightly.link/PojavLauncherTeam/shaderc/workflows/android/main/libshaderc-$NDK_ABI.zip"
+wget -nc "https://nightly.link/aaaapai/shaderc/workflows/android/main/libshaderc-$NDK_ABI.zip"
 unzip -o libshaderc-$NDK_ABI.zip -d $LWJGL_NATIVE/shaderc
-
-# HACK: Skip compiling and running the generator to save time and keep LWJGLX functions
-mkdir -p bin/classes/{generator,templates/META-INF}
-touch bin/classes/{generator,templates}/touch.txt bin/classes/generator/generated-touch.txt
 
 # Build LWJGL 3
 ant -version
 yes | ant -Dplatform.linux=true \
+  -Dbinding.ktx=false \
+  -Dbinding.hwloc=false \
+  -Dbinding.fmod=false \
+  -Dbinding.harfbuzz=false \
+  -Dbinding.lwjglx=false \
   -Dbinding.assimp=false \
   -Dbinding.bgfx=false \
   -Dbinding.cuda=false \
-  -Dbinding.egl=false \
+  -Dbinding.egl=true \
   -Dbinding.jawt=false \
-  -Dbinding.jemalloc=false \
-  -Dbinding.libdivide=false \
+  -Dbinding.jemalloc=true \
   -Dbinding.llvm=false \
   -Dbinding.lmdb=false \
   -Dbinding.lz4=false \
@@ -87,12 +88,15 @@ yes | ant -Dplatform.linux=true \
   -Dbuild.type=release/3.3.1 \
   -Djavadoc.skip=true \
   -Dnashorn.args="--no-deprecation-warning" \
-  compile compile-native release
+  compile-templates compile compile-native release
 
 # Copy native libraries
 rm -rf bin/out; mkdir bin/out
 find $LWJGL_NATIVE -name 'liblwjgl*.so' -exec cp {} bin/out/ \;
 cp $LWJGL_NATIVE/shaderc/libshaderc.so bin/out/
+if [ -e "$LWJGL_NATIVE/libfreetype.so" ]; then
+  cp $LWJGL_NATIVE/libfreetype.so bin/out/
+fi
 
 # Cleanup unused output jar files
 find bin/RELEASE \( -name '*-natives-*' -o -name '*-sources.jar' \) -delete
