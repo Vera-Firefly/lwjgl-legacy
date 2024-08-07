@@ -290,7 +290,9 @@ public final class GL {
         }
     }
 
-    private static void fixPojavGLContestPro() throws Exception {
+    private static void IsUseBuffer(boolean buffer) throws Exception {
+        if (!buffer) System.out.println("[LWJGL] Frame buffers are not used");
+
         System.out.println("[LWJGL] Workaround glCheckFramebufferStatus issue on 1.13+ 64-bit");
         long currentContext;
         Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
@@ -301,25 +303,28 @@ public final class GL {
     /** PojavLauncher(Android): sets the OpenGL context again to workaround framebuffer issue */
     private static void fixPojavGLContext() throws Exception {
         String renderer = System.getProperty("org.lwjgl.opengl.libname");
-        if (Platform.get() == Platform.LINUX && renderer.startsWith("libOSMesa")) {
-            if (System.getenv("POJAV_SPARE_FRAME_BUFFER") != null && System.getenv("POJAV_EXP_SETUP") != null) {
-                System.out.println("[LWJGL] You turned on the experimental settings and tried to use the frame buffer");
-                if (System.getenv("POJAV_SPARE_BRIDGE") != null || System.getenv("DCLAT_FRAMEBUFFER") != null) {
-                    System.out.println("[LWJGL] Repair GL Context for Mesa renderer, use frame buffer");
-                    long currentContext;
-                    int[] dims = getNativeWidthHeight();
-                    currentContext = callJ(functionProvider.getFunctionAddress("OSMesaGetCurrentContext"));
-                    callJPI(currentContext,getGraphicsBufferAddr(),GL_UNSIGNED_BYTE,dims[0],dims[1],functionProvider.getFunctionAddress("OSMesaMakeCurrent"));
-                } else {
-                    System.out.println("[LWJGL] Frame buffers are not used");
-                    fixPojavGLContestPro();
-                }
-            } else {
-                fixPojavGLContestPro();
-            }
-        } else {
-            fixPojavGLContestPro();
-        }
+
+        if (Platform.get() == Platform.LINUX
+           && renderer.startsWith("libOSMesa")
+           && System.getenv("POJAV_SPARE_FRAME_BUFFER") != null
+           && System.getenv("POJAV_EXP_SETUP") != null)
+        {
+
+            System.out.println("[LWJGL] You turned on the experimental settings and tried to use the frame buffer");
+
+            if (System.getenv("POJAV_SPARE_BRIDGE") != null || System.getenv("DCLAT_FRAMEBUFFER") != null)
+            {
+
+                System.out.println("[LWJGL] Repair GL Context for Mesa renderer, use frame buffer");
+                long currentContext;
+                int[] dims = getNativeWidthHeight();
+                currentContext = callJ(functionProvider.getFunctionAddress("OSMesaGetCurrentContext"));
+                callJPI(currentContext,getGraphicsBufferAddr(),GL_UNSIGNED_BYTE,dims[0],dims[1],functionProvider.getFunctionAddress("OSMesaMakeCurrent"));
+
+            } else IsUseBuffer(false);
+
+        } else IsUseBuffer(true);
+
     }
 
     /**
